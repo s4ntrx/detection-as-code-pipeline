@@ -1,0 +1,6 @@
+title: Suspicious OAuth Consent
+detection:
+    selection:
+        Operation: 'Consent to application'
+    keywords: 'Mail.Read'
+    condition: selection and keywords
