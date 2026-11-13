@@ -1,0 +1,5 @@
+title: Broken Rule - This will fail
+detection:
+    selection:
+        EventType: 'Success' # This is wrong. The fixture will be 'Failed', so it won't fire.
+    condition: selection
