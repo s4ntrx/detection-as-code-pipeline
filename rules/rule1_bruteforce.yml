@@ -1,0 +1,6 @@
+title: SSH Brute Force
+detection:
+    selection:
+        EventType: 'Failed'
+    timeframe: 5m
+    condition: selection | count() by SourceIp > 10
