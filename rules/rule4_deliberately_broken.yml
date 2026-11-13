@@ -1,4 +1,7 @@
 title: Broken Rule - This will fail
+logsource:
+    product: linux
+    service: sshd
 detection:
     selection:
         EventType: 'Success' # This is wrong. The fixture will be 'Failed', so it won't fire.

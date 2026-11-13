@@ -1,4 +1,7 @@
 title: SSH Brute Force
+logsource:
+    product: linux
+    service: sshd
 detection:
     selection:
         EventType: 'Failed'

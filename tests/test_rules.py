@@ -1,74 +1,67 @@
-import yaml
 import json
-import pytest
 import os
 
-RULES_DIR = os.path.join(os.path.dirname(__file__), '..', 'rules')
-FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
+import pytest
+import yaml
 
-def load_yaml(path):
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
+from evaluator import evaluate_rule
 
-def load_json(path):
-    with open(path, 'r') as f:
-        return json.load(f)
+RULES_DIR = os.path.join(os.path.dirname(__file__), "..", "rules")
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
+RESERVED_KEYS = {"condition", "timeframe"}
 
-def evaluate_rule(rule, log_event):
-    # A highly simplified mock evaluator for demonstration
-    detection = rule.get('detection', {})
-    condition = detection.get('condition', '')
-    
-    # Mock logic for Rule 1 (Count > 10)
-    if 'count()' in condition:
-        if log_event.get('Count', 0) > 10:
-            return True
-        return False
-        
-    # Mock logic for Rule 2 & 4 (selection_parent and selection_child)
-    if 'and' in condition:
-        parent_match = log_event.get('ParentImage', '').endswith('\\w3wp.exe')
-        child_match = log_event.get('Image', '').endswith('\\cmd.exe')
-        return parent_match and child_match
 
-    # Mock logic for Rule 3 (selection and keywords)
-    if 'keywords' in detection:
-        operation_match = log_event.get('Operation') == 'Consent to application'
-        scopes = log_event.get('Scopes', [])
-        keyword_match = 'Mail.Read' in scopes or 'Files.ReadWrite.All' in scopes
-        
-        if operation_match and keyword_match:
-            return True
-        return False
-        
-    # Mock logic for Rule 4 (Broken - looking for Success)
-    if 'selection' in detection and 'EventType' in detection['selection']:
-        if log_event.get('EventType') == detection['selection']['EventType']:
-            return True
-        return False
+def load_rule(name):
+    with open(os.path.join(RULES_DIR, name), "r") as rule_file:
+        return yaml.safe_load(rule_file)
 
-    return False
 
-# --- TESTS ---
+def load_fixture(name):
+    with open(os.path.join(FIXTURES_DIR, name), "r") as fixture_file:
+        return json.load(fixture_file)
 
-def test_rule1_true_positive():
-    rule = load_yaml(os.path.join(RULES_DIR, 'rule1_bruteforce.yml'))
-    event = load_json(os.path.join(FIXTURES_DIR, 'rule1_fail.json'))
-    assert evaluate_rule(rule, event) == True, "Rule 1 failed to fire on malicious fixture"
 
-def test_rule2_true_positive():
-    rule = load_yaml(os.path.join(RULES_DIR, 'rule2_webshell.yml'))
-    event = load_json(os.path.join(FIXTURES_DIR, 'rule2_malicious.json'))
-    assert evaluate_rule(rule, event) == True, "Rule 2 failed to fire on malicious fixture"
+RULE_FILES = sorted(name for name in os.listdir(RULES_DIR) if name.endswith(".yml"))
 
-def test_rule3_true_positive():
-    rule = load_yaml(os.path.join(RULES_DIR, 'rule3_oauth.yml'))
-    event = load_json(os.path.join(FIXTURES_DIR, 'rule3_malicious.json'))
-    assert evaluate_rule(rule, event) == True, "Rule 3 failed to fire on malicious fixture"
 
-# THIS IS THE DELIBERATELY BROKEN TEST
-# def test_rule4_broken_rule():
-  #  rule = load_yaml(os.path.join(RULES_DIR, 'rule4_deliberately_broken.yml'))
-   # event = load_json(os.path.join(FIXTURES_DIR, 'rule4_malicious.json'))
-    # This will fail because the rule looks for 'Success', but the event is 'Failed'
-    #assert evaluate_rule(rule, event) == True, "DELIBERATE FAILURE: Rule 4 is broken."
+@pytest.mark.parametrize("rule_file", RULE_FILES)
+def test_rule_has_required_sigma_fields(rule_file):
+    rule = load_rule(rule_file)
+    assert rule.get("title"), "missing title"
+    assert rule.get("logsource"), "missing logsource"
+    assert rule.get("detection", {}).get("condition"), "missing detection.condition"
+
+
+@pytest.mark.parametrize(
+    "rule_file, fixture_file",
+    [
+        ("rule1_bruteforce.yml", "rule1_fail.json"),
+        ("rule2_webshell.yml", "rule2_malicious.json"),
+        ("rule3_oauth.yml", "rule3_malicious.json"),
+    ],
+)
+def test_rule_fires_on_malicious_fixture(rule_file, fixture_file):
+    assert evaluate_rule(load_rule(rule_file), load_fixture(fixture_file)) is True
+
+
+@pytest.mark.parametrize(
+    "rule_file, fixture_file",
+    [
+        ("rule1_bruteforce.yml", "rule1_success.json"),
+        ("rule1_bruteforce.yml", "rule1_fail_low_count.json"),
+        ("rule2_webshell.yml", "rule2_benign.json"),
+        ("rule3_oauth.yml", "rule3_benign.json"),
+    ],
+)
+def test_rule_stays_silent_on_benign_fixture(rule_file, fixture_file):
+    assert evaluate_rule(load_rule(rule_file), load_fixture(fixture_file)) is False
+
+
+# Deliberately broken rule: looks for 'Success' but the fixture is 'Failed'.
+# strict xfail keeps CI green while proving the harness catches a rule that
+# does not fire. If someone "fixes" the rule, this test turns red.
+# To produce the red-X screenshot, delete the marker on a throwaway branch.
+@pytest.mark.xfail(strict=True, reason="DELIBERATE FAILURE: rule 4 looks for 'Success'")
+def test_rule4_broken_rule():
+    rule = load_rule("rule4_deliberately_broken.yml")
+    assert evaluate_rule(rule, load_fixture("rule4_malicious.json")) is True

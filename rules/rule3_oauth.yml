@@ -1,4 +1,7 @@
 title: Suspicious OAuth Consent
+logsource:
+    product: azure
+    service: auditlogs
 detection:
     selection:
         Operation: 'Consent to application'
