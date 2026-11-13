@@ -31,7 +31,7 @@ def evaluate_rule(rule, log_event):
         child_match = log_event.get('Image', '').endswith('\\cmd.exe')
         return parent_match and child_match
 
-        # Mock logic for Rule 3 (selection and keywords)
+    # Mock logic for Rule 3 (selection and keywords)
     if 'keywords' in detection:
         operation_match = log_event.get('Operation') == 'Consent to application'
         scopes = log_event.get('Scopes', [])
