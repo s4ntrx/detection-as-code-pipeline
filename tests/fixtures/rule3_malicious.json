@@ -1,1 +1,4 @@
-{"Operation": "Consent to application", "Scopes": ["User.Read", "Mail.Read"]}
+{
+  "Operation": "Consent to application",
+  "Scopes": ["User.Read", "Mail.Read"]
+}
