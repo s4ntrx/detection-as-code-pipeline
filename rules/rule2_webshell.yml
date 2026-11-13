@@ -1,0 +1,7 @@
+title: Web Shell Spawns Shell
+detection:
+    selection_parent:
+        ParentImage|endswith: '\w3wp.exe'
+    selection_child:
+        Image|endswith: '\cmd.exe'
+    condition: selection_parent and selection_child
